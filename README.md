@@ -2,6 +2,11 @@
 
 Reverse-engineered documentation of the Granola API, including authentication flow and endpoints.
 
+## Credits
+
+This work builds upon the initial reverse engineering research by Joseph Thacker:
+- [Reverse Engineering Granola Notes](https://josephthacker.com/hacking/2025/05/08/reverse-engineering-granola-notes.html)
+
 ## Token Management
 
 ### OAuth 2.0 Refresh Token Flow
