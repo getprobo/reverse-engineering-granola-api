@@ -169,6 +169,61 @@ def fetch_document_lists(token):
     logger.warning("All document list endpoints failed")
     return None
 
+def fetch_documents_batch(token, document_ids, batch_size=100):
+    """
+    Fetch multiple documents by their IDs using the batch endpoint
+
+    IMPORTANT: This is the ONLY way to fetch shared documents in folders.
+    The regular get-documents endpoint does NOT return shared documents.
+
+    Recommended workflow:
+    1. Use fetch_document_lists() to get folder contents (returns document IDs)
+    2. Use this function to fetch the actual documents (including shared ones)
+
+    Args:
+        token: Access token
+        document_ids: List of document IDs to fetch
+        batch_size: Number of documents to fetch per request (default 100)
+
+    Returns:
+        list: List of documents (including both owned and shared documents)
+    """
+    url = "https://api.granola.ai/v1/get-documents-batch"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "*/*",
+        "User-Agent": "Granola/5.354.0",
+        "X-Client-Version": "5.354.0"
+    }
+
+    all_documents = []
+
+    # Process in batches
+    for i in range(0, len(document_ids), batch_size):
+        batch = document_ids[i:i + batch_size]
+        data = {
+            "document_ids": batch,
+            "include_last_viewed_panel": True
+        }
+
+        try:
+            logger.info(f"Fetching batch {i // batch_size + 1}: {len(batch)} documents")
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+
+            # Handle different response formats
+            docs = result.get("documents") or result.get("docs") or []
+            all_documents.extend(docs)
+            logger.info(f"Fetched {len(docs)} documents in batch {i // batch_size + 1}")
+        except Exception as e:
+            logger.error(f"Error fetching batch at index {i}: {str(e)}")
+            continue
+
+    logger.info(f"Total documents fetched via batch: {len(all_documents)}/{len(document_ids)}")
+    return all_documents
+
 def fetch_document_transcript(token, document_id):
     """
     Fetch transcript for a specific document

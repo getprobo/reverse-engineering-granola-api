@@ -33,13 +33,14 @@ Granola uses WorkOS for authentication with refresh token rotation.
 
 ## Implementation Files
 
-- `main.py` - Document fetching and conversion logic (includes workspace and folder fetching)
+- `main.py` - Document fetching and conversion logic (includes workspace, folder, and batch fetching)
 - `token_manager.py` - OAuth token management and refresh
 - `list_workspaces.py` - List all available workspaces (organizations)
 - `list_folders.py` - List all document lists (folders)
 - `filter_by_workspace.py` - Filter and organize documents by workspace
 - `filter_by_folder.py` - Filter and organize documents by folder
 - `GETTING_REFRESH_TOKEN.md` - Method to extract tokens from Granola app
+- `cloudflare-worker/` - Cloudflare Worker for automated syncing to n8n webhooks
 
 ## API Endpoints
 
@@ -121,6 +122,11 @@ X-Client-Version: 5.354.0
   ]
 }
 ```
+
+**Limitations:**
+
+- **Does NOT return shared documents** - only returns documents owned by the user
+- For fetching documents from folders (which may contain shared documents), use `get-documents-batch` instead
 
 ---
 
@@ -213,7 +219,9 @@ X-Client-Version: 5.354.0
 
 Retrieves all document lists (folders) accessible to the user.
 
-**Endpoint:** `POST https://api.granola.ai/v1/get-document-lists`
+**Endpoints:**
+- `POST https://api.granola.ai/v2/get-document-lists` (preferred)
+- `POST https://api.granola.ai/v1/get-document-lists` (fallback)
 
 **Headers:**
 
@@ -236,11 +244,15 @@ X-Client-Version: 5.354.0
 [
   {
     "id": "string",                    // List unique identifier
-    "name": "string",                  // List/folder name
+    "name": "string",                  // List/folder name (v1)
+    "title": "string",                 // List/folder name (v2)
     "created_at": "ISO8601",           // Creation timestamp
     "workspace_id": "string",          // Workspace this list belongs to
     "owner_id": "string",              // Owner user ID
-    "documents": ["doc_id1", "..."],   // Document IDs in this list
+    "documents": [                     // Document objects in this list (v2)
+      {"id": "doc_id1", ...}
+    ],
+    "document_ids": ["doc_id1", "..."], // Document IDs in this list (v1)
     "is_favourite": false              // Whether user favourited this list
   }
 ]
@@ -251,6 +263,66 @@ X-Client-Version: 5.354.0
 - Document lists are the folder system in Granola
 - A document can belong to multiple lists
 - Lists are workspace-specific
+- Try v2 endpoint first, fallback to v1 if not available
+- Response format differs slightly between v1 and v2
+
+---
+
+#### Get Documents Batch
+
+Fetch multiple documents by their IDs. **This is the most reliable way to fetch documents from folders, especially shared documents.**
+
+**Endpoint:** `POST https://api.granola.ai/v1/get-documents-batch`
+
+**Headers:**
+
+```
+Authorization: Bearer {access_token}
+Content-Type: application/json
+User-Agent: Granola/5.354.0
+X-Client-Version: 5.354.0
+```
+
+**Request Body:**
+
+```json
+{
+  "document_ids": ["doc_id1", "doc_id2", "..."], // Array of document IDs to fetch
+  "include_last_viewed_panel": true              // Include document content
+}
+```
+
+**Response:**
+
+```json
+{
+  "documents": [  // or "docs" depending on API version
+    {
+      "id": "string",              // Document unique identifier
+      "title": "string",           // Document title
+      "created_at": "ISO8601",     // Creation timestamp
+      "updated_at": "ISO8601",     // Last update timestamp
+      "workspace_id": "string",    // Workspace ID
+      "last_viewed_panel": {
+        "content": {
+          "type": "doc",           // ProseMirror document type
+          "content": []            // ProseMirror content nodes
+        }
+      }
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- **IMPORTANT**: The `get-documents` endpoint does NOT return shared documents. Use this batch endpoint to fetch shared documents.
+- Recommended workflow for folders:
+  1. Use `get-document-lists` to get folder contents (returns document IDs)
+  2. Use `get-documents-batch` to fetch the actual documents (including shared ones)
+- Batch size limit is typically 100 documents per request
+- This endpoint works with both owned and shared documents
+- Response may use either "documents" or "docs" field name
 
 ---
 
