@@ -1,5 +1,7 @@
 # Granola API Reverse Engineering
 
+> **⚠️ ARCHIVED:** This repository is now archived. Granola has released an official API, making this reverse-engineering effort obsolete. Please use the official Granola API instead: [https://docs.granola.ai/introduction](https://docs.granola.ai/introduction)
+
 Reverse-engineered documentation of the Granola API, including authentication flow and endpoints.
 
 ## Credits
